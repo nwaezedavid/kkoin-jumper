@@ -1,0 +1,1731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Kkoin Jumper</title>
+    
+    <!-- 
+      All scripts are at the end of <body> for stability.
+    -->
+
+    <style>
+        /* CSS remains unchanged */
+        :root {
+            --bg-primary: #1a1a2e; /* Deep space blue */
+            --bg-secondary: #162447; /* Darker blue */
+            --bg-tertiary: #2e4374; /* Lighter panel blue */
+            --primary: #1f4068;
+            --secondary: #e43f5a; /* Red/Pink accent */
+            --accent: #f6c90e; /* Gold/Yellow accent */
+            --text-light: #ffffff;
+            --text-dark: #e0e0e0;
+            --text-dim: #a0a0a0;
+            --btn-primary: #1e90ff; /* Bright blue button */
+            --btn-secondary: #e43f5a; /* Red button */
+            --btn-green: #32cd32; /* Lime green */
+            --btn-disabled: #5a5a72;
+            --nav-icon: #7b8ab8;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-light);
+            -webkit-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            overscroll-behavior: none;
+        }
+
+        #app-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        #loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-primary);
+            color: var(--text-light);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            z-index: 1000;
+        }
+
+        /* Main game canvas */
+        #game-canvas {
+            flex-grow: 1;
+            width: 100%;
+            display: none; /* Hidden by default, will be shown by JS */
+            background-color: #000; /* Will be overridden by level colors */
+        }
+
+        /* All screens (start, game over, etc.) */
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            background-color: rgba(26, 26, 46, 0.85);
+            backdrop-filter: blur(5px);
+            z-index: 10;
+            padding: 20px;
+            box-sizing: border-box;
+            color: var(--text-light);
+            display: none; /* Hidden by default */
+        }
+
+        .screen h1 {
+            font-size: 3rem;
+            color: var(--accent);
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            margin-bottom: 10px;
+        }
+
+        .screen p {
+            font-size: 1.2rem;
+            color: var(--text-dim);
+            margin-bottom: 20px;
+        }
+
+        .screen .score-display {
+            font-size: 1.5rem;
+            margin: 15px 0;
+        }
+        .screen .score-display span {
+            font-size: 2rem;
+            color: var(--accent);
+            font-weight: bold;
+        }
+
+        /* Main app content area */
+        #main-content {
+            flex-grow: 1;
+            position: relative;
+            overflow-y: auto;
+            /* Hide scrollbar */
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+        #main-content::-webkit-scrollbar {
+            display: none; /* Chrome, Safari, Opera */
+        }
+
+        /* Individual tab content */
+        .tab-content {
+            display: none; /* All tabs hidden by default */
+            padding: 20px;
+            padding-bottom: 80px; /* Space for nav bar */
+            height: 100%;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Home screen needs flex to show canvas */
+        #home-screen.active {
+            display: flex; 
+        }
+
+        /* Re-style game screen to be a tab */
+        #home-screen {
+            padding: 0; /* Game tab has no padding */
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        #game-ui-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 5;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
+            pointer-events: none; /* Allow clicks to pass through */
+        }
+
+        #game-ui-overlay #shield-button {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2rem;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid var(--accent);
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            pointer-events: all; /* Make button clickable */
+            z-index: 6;
+            display: none; /* Hidden by default */
+            cursor: pointer;
+        }
+        #shield-button.glowing {
+            box-shadow: 0 0 15px 5px var(--accent);
+        }
+
+        /* Bottom Navigation */
+        #bottom-nav {
+            width: 100%;
+            height: 70px;
+            background-color: var(--bg-secondary);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            border-top: 1px solid var(--bg-tertiary);
+            z-index: 50;
+        }
+
+        .nav-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: none;
+            border: none;
+            color: var(--nav-icon);
+            font-size: 0.7rem;
+            flex-grow: 1;
+            height: 100%;
+            cursor: pointer;
+        }
+
+        .nav-btn .icon {
+            font-size: 1.5rem; /* Icon size */
+            margin-bottom: 4px;
+        }
+        
+        .nav-btn .icon svg {
+            width: 28px;
+            height: 28px;
+            fill: currentColor;
+        }
+
+        .nav-btn.active {
+            color: var(--accent);
+        }
+
+        /* General Button Styles */
+        .btn {
+            font-size: 1.1rem;
+            font-weight: bold;
+            padding: 15px 30px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: all 0.2s ease;
+            color: var(--text-light);
+            min-width: 200px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            box-sizing: border-box;
+        }
+
+        .btn-primary {
+            background-color: var(--btn-primary);
+            box-shadow: 0 4px 0 #006bb3;
+        }
+        .btn-primary:active {
+            box-shadow: 0 2px 0 #006bb3;
+            transform: translateY(2px);
+        }
+
+        .btn-secondary {
+            background-color: var(--btn-secondary);
+            box-shadow: 0 4px 0 #a31a31;
+        }
+        .btn-secondary:active {
+            box-shadow: 0 2px 0 #a31a31;
+            transform: translateY(2px);
+        }
+
+        .btn-green {
+            background-color: var(--btn-green);
+            box-shadow: 0 4px 0 #1e8a1e;
+        }
+        .btn-green:active {
+            box-shadow: 0 2px 0 #1e8a1e;
+            transform: translateY(2px);
+        }
+
+        .btn-accent {
+            background-color: var(--accent);
+            color: var(--bg-primary);
+            box-shadow: 0 4px 0 #b3910a;
+        }
+        .btn-accent:active {
+            box-shadow: 0 2px 0 #b3910a;
+            transform: translateY(2px);
+        }
+        
+        .btn-disabled {
+            background-color: var(--btn-disabled);
+            box-shadow: 0 4px 0 #3b3b4f;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        /* Utility & Content Styles */
+        .card {
+            background-color: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--bg-tertiary);
+        }
+
+        .card h2 {
+            font-size: 1.5rem;
+            color: var(--accent);
+            margin-top: 0;
+            border-bottom: 1px solid var(--bg-tertiary);
+            padding-bottom: 10px;
+        }
+        
+        .card p {
+            font-size: 1rem;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            background-color: var(--bg-tertiary);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-item .label {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            margin-bottom: 5px;
+            text-transform: uppercase;
+        }
+
+        .stat-item .value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--text-light);
+        }
+        .stat-item .value.accent {
+            color: var(--accent);
+        }
+
+        /* Form elements */
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--bg-tertiary);
+            background-color: var(--bg-primary);
+            color: var(--text-light);
+            font-size: 1rem;
+            box-sizing: border-box;
+            margin-bottom: 15px;
+        }
+
+        .share-message {
+            background-color: var(--bg-tertiary);
+            padding: 15px;
+            border-radius: 8px;
+            font-style: italic;
+            color: var(--text-dim);
+            border-left: 4px solid var(--btn-primary);
+        }
+
+        .share-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        /* Shop Styles */
+        #shop-items {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 15px;
+        }
+
+        .shop-item {
+            background-color: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+            border: 2px solid var(--bg-tertiary);
+            transition: all 0.2s ease;
+        }
+        .shop-item.purchased {
+            border: 2px solid var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
+        .shop-item .icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+        .shop-item h3 {
+            font-size: 1.1rem;
+            margin: 10px 0;
+        }
+        .shop-item .btn {
+            min-width: 100%;
+            padding: 10px;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        /* Ad Banner Placeholder */
+        .ad-banner-placeholder {
+            width: 320px;
+            height: 50px;
+            background-color: #333;
+            border: 1px dashed var(--text-dim);
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            margin: 20px auto 0;
+            border-radius: 8px;
+        }
+
+    </style>
+</head>
+<body>
+    <div id="app-container">
+
+        <!-- Main Content Area (holds tabs) -->
+        <div id="main-content">
+
+            <div id="home-screen" class="tab-content active">
+                
+                <!-- This canvas is where the game is drawn -->
+                <canvas id="game-canvas"></canvas>
+
+                <!-- UI overlay for score, etc. -->
+                <div id="game-ui-overlay">
+                    <div id="score-display">Stars: 0</div>
+                    <div id="level-display">Level 1</div>
+                </div>
+
+                <!-- Shield Button -->
+                <button id="shield-button">🛡️ <span id="shield-count">0</span></button>
+
+                <!-- Start Screen (Overlay) -->
+                <div id="startScreen" class="screen" style="display: none;"> <!-- Hidden by default, shown by JS -->
+                    <h1>Kkoin Jumper</h1>
+                    <p>Tap to jump and avoid the asteroids!</p>
+                    <p id="high-score-display">Best Score: 0</p>
+                    <button id="playButton" class="btn btn-primary">Play</button>
+                    <button id="shopButton" class="btn btn-accent">Shop</button>
+                </div>
+
+                <!-- Game Over Screen (Overlay) -->
+                <div id="gameOverScreen" class="screen">
+                    <h1>Game Over</h1>
+                    <div class="score-display">Score: <span>0</span></div>
+                    <div class="score-display">Stars: <span>0</span></div>
+                    <p>Don't give up! Try again.</p>
+                    <button id="continueButton" class="btn btn-green">Watch Ad for Continue (1)</button>
+                    <button id="tryAgainButton" class="btn btn-primary">Try Again</button>
+                    <button id="mainMenuButton" class="btn btn-secondary">Main Menu</button>
+                </div>
+
+                <!-- Level Complete Screen (Overlay) -->
+                <div id="levelCompleteScreen" class="screen">
+                    <h1>Level Complete!</h1>
+                    <div class="score-display">Level Bonus: <span>+100 🌟</span></div>
+                    <p>Great job! Get ready for the next level.</p>
+                    <button id="claimBonusButton" class="btn btn-primary">Claim 100 🌟</button>
+                    <button id="claimDoubleBonusButton" class="btn btn-green">Claim x2 Bonus (200 🌟)</button>
+                </div>
+
+                <!-- Shop Screen (Overlay) -->
+                <div id="shopScreen" class="screen">
+                    <div style="width: 100%; text-align: left;">
+                        <button id="backToMenuButton" class="btn-secondary" style="padding: 10px 20px; font-size: 0.9rem; min-width: 0;">&lt; Back</button>
+                    </div>
+                    <h1>Shop</h1>
+                    <p>Spend your Stars on upgrades and skins!</p>
+                    <div class="stat-item" style="max-width: 300px; margin: 0 auto 20px;">
+                        <div class="label">Your Stars</div>
+                        <div id="shop-star-balance" class="value accent">0</div>
+                    </div>
+
+                    <div id="shop-items">
+                        <!-- Power-up -->
+                        <div class="shop-item">
+                            <div class="icon">🛡️</div>
+                            <h3>Invincibility Shield</h3>
+                            <p>Buy 1 Shield</p>
+                            <button id="buyShieldButton" class="btn btn-primary">25 🌟</button>
+                        </div>
+                        <!-- Direct Purchase -->
+                        <div class="shop-item">
+                            <div class="icon">✨</div>
+                            <h3>Star Pack</h3>
+                            <p>Buy 500 Stars</p>
+                            <button id="buyStarsButton" class="btn btn-accent">100 TG☆</button>
+                        </div>
+                        <!-- Skins -->
+                        <div class="shop-item" data-skin="default">
+                            <div class="icon">🧍</div>
+                            <h3>Default Skin</h3>
+                            <p>The classic look.</p>
+                            <button class="btn btn-disabled" disabled>Equipped</button>
+                        </div>
+                        <div class="shop-item" data-skin="red">
+                            <div class="icon" style="filter: hue-rotate(120deg);">🧍</div>
+                            <h3>Red Jumper</h3>
+                            <p>A fiery look.</p>
+                            <button class="btn btn-primary">100 🌟</button>
+                        </div>
+                        <div class="shop-item" data-skin="green">
+                            <div class="icon" style="filter: hue-rotate(240deg);">🧍</div>
+                            <h3>Green Jumper</h3>
+                            <p>For good luck.</p>
+                            <button class="btn btn-primary">100 🌟</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Referral Tab -->
+            <div id="referral-screen" class="tab-content">
+                <div class="card">
+                    <h2>Refer Friends, Earn Points!</h2>
+                    <p>Share your unique link with friends. For every user who joins, you'll earn 150 referral points!</p>
+                    <div class="stat-grid">
+                        <div class="stat-item">
+                            <div class="label">Users Referred</div>
+                            <div id="referral-count" class="value">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="label">Referral Points</div>
+                            <div id="referral-points" class="value accent">0</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>Share Your Link</h2>
+                    <p class="share-message">"🚀 Join me on Kkoin Jumper! It's a fun game where you can jump through space and earn crypto rewards. Use my link to get started! 🧍"</p>
+                    
+                    <input type="text" id="referral-link-input" readonly>
+                    <button id="copy-link-btn" class="btn btn-primary" style="width: 100%;">Copy My Link</button>
+                    
+                    <div class="share-buttons">
+                        <!-- These would be implemented with TWA's share features -->
+                        <button class="btn btn-primary" style="min-width: 0; padding: 10px 15px;">Share (Telegram)</button>
+                        <button class="btn btn-primary" style="min-width: 0; padding: 10px 15px;">Share (Other)</button>
+                    </div>
+                </div>
+
+                <div class="ad-banner-placeholder">
+                    <!-- 
+                    ======================================================
+                    MONETAG: PASTE YOUR 320x50 BANNER AD CODE HERE
+                    ======================================================
+                    -->
+                    Ad Banner (320x50)
+                </div>
+            </div>
+
+            <!-- Wallet Tab -->
+            <div id="wallet-screen" class="tab-content">
+                <div class="card">
+                    <h2>Your Kkoin Wallet</h2>
+                    <div class="stat-grid">
+                        <div class="stat-item">
+                            <div class="label">Stars (Game)</div>
+                            <div id="wallet-stars-balance" class="value accent">0</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="label">Ref Points</div>
+                            <div id="wallet-ref-points-balance" class="value">0</div>
+                        </div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="label">Total USDT (Est.)</div>
+                        <div id="wallet-usdt-balance" class="value" style="color: var(--btn-green);">$0.0000</div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Convert to USDT</h2>
+                    <p>Convert your Stars and Points into USDT. Minimum $10.00 to withdraw.</p>
+                    <p>1000 Stars = $0.01 USDT</p>
+                    <p>100 Ref Points = $0.01 USDT (10,000 for $1)</p>
+                    <button id="convert-stars-btn" class="btn btn-primary" style="width: 100%;">Convert Stars to USDT</button>
+                    <button id="convert-points-btn" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Convert Ref Points to USDT</button>
+                </div>
+
+                <div class="card">
+                    <h2>Withdraw USDT</h2>
+                    <p>Enter your TRC20 (Tron) wallet address to withdraw your USDT earnings. Minimum $10.00.</p>
+                    <input type="text" id="wallet-address-input" placeholder="Enter your TRC20 wallet address">
+                    <button id="withdraw-btn" class="btn btn-green" style="width: 100%;">Withdraw $0.00</button>
+                </div>
+
+                <div class="card">
+                    <h2>Create a Crypto Wallet</h2>
+                    <p>Don't have a wallet? You can create one easily to store your earnings.</p>
+                    <a href="https://t.me/CoinvetoBot?start=3AC81229" target="_blank" id="create-wallet-btn" class="btn btn-secondary" style="width: 100%;">Create Crypto Wallet</a>
+                </div>
+
+                <div class="ad-banner-placeholder">
+                    <!-- 
+                    ======================================================
+                    MONETAG: PASTE YOUR 320x50 BANNER AD CODE HERE
+                    ======================================================
+                    -->
+                    Ad Banner (320x50)
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Bottom Navigation Bar -->
+        <div id="bottom-nav">
+            <button class="nav-btn active" data-tab="home-screen">
+                <div class="icon">🎮</div>
+                <div>Game</div>
+            </button>
+            <button class="nav-btn" data-tab="referral-screen">
+                <div class="icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V18h14v-1.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V18h6v-1.5c0-2.33-4.67-3.5-7-3.5z"/>
+                    </svg>
+                </div>
+                <div>Referral</div>
+            </button>
+            <button class="nav-btn" data-tab="wallet-screen">
+                <div class="icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-8h10V8H12v2zm0 4h10v-2H12v2z"/>
+                    </svg>
+                </div>
+                <div>Wallet</div>
+            </button>
+        </div>
+
+        <!-- Loading Screen -->
+        <div id="loading-screen" style="display: flex;"> <!-- Show by default -->
+            Connecting to server...
+        </div>
+    </div>
+
+    <!-- 
+    ====================================================================
+    SCRIPT LIBRARIES
+    ====================================================================
+    -->
+    
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- Firebase (Classic Namespaced SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+
+    <!-- 
+    ====================================================================
+    GAME JAVASCRIPT
+    ====================================================================
+    -->
+    <script>
+        
+        /* ====================================================================
+        CONFIGURATION 
+        (This is where you will add your settings)
+        ====================================================================
+        */
+        const CONFIG = {
+            // Paste your Firebase Config JSON object here
+            FIREBASE_CONFIG: const firebaseConfig = {
+  apiKey: "AIzaSyCy_O0S9-8dl0speHadGHsAquPYoc0Y2Ho",
+  authDomain: "kkoin-jumper.firebaseapp.com",
+  projectId: "kkoin-jumper",
+  storageBucket: "kkoin-jumper.firebasestorage.app",
+  messagingSenderId: "134192965989",
+  appId: "1:134192965989:web:48684a4cf79b97f096998c",
+  measurementId: "G-PM676FEMVF"
+}; 
+            /* Example:
+            FIREBASE_CONFIG: {
+                apiKey: "...",
+                authDomain: "...",
+                projectId: "...",
+                storageBucket: "...",
+                messagingSenderId: "...",
+                appId: "..."
+            },
+            */
+
+            // Your Telegram bot's username (without the '@')
+            TELEGRAM_BOT_USERNAME: "KkoinJumperBot",
+
+            // Your Telegram Stars payment info
+            TELEGRAM_STARS_PAYMENT: {
+                CURRENCY: "XTR", // Telegram Stars currency code
+                ITEM_PRICE: 100, // The price in Stars for the 500 in-game Stars pack
+                ITEM_LABEL: "500 Game Stars",
+                ITEM_PAYLOAD: "buy_500_stars" // A payload your server can recognize
+            }
+        };
+        
+        
+        // --- Core Namespaces ---
+        let telegramWebApp = null;
+        let db = null;
+        let auth = null;
+        let isTWA = false;
+        let userId = null;
+        let isFirebaseInitialized = false;
+        let appId = 'default-app-id';
+
+        // --- DOM Elements ---
+        let canvas, ctx;
+        let loadingScreen, appContainer;
+        let playButton, shopButton, backToMenuButton, mainMenuButton, tryAgainButton, continueButton, claimBonusButton, claimDoubleBonusButton;
+        let startScreen, gameOverScreen, levelCompleteScreen, shopScreen;
+        let scoreDisplay, levelDisplay, highScoreDisplay, gameOverScore, gameOverStars, shopStarBalance;
+        let bottomNav, tabContents, navButtons;
+        let homeScreen, referralScreen, walletScreen;
+        let referralLinkInput, copyLinkBtn, referralCountEl, referralPointsEl, walletStarsEl, walletRefPointsEl, walletUsdtEl, convertStarsBtn, convertPointsBtn, withdrawBtn;
+        let shieldButton, shieldCountEl;
+
+        // --- Game State ---
+        let player, pipes, score, stars, level;
+        let gameRunning = false;
+        let gameSpeed, pipeGap, pipeWidth, pipeFrequency;
+        let lastPipeTime = 0;
+        let continueCount = 1;
+        let levelGoal = 10;
+        let currentSkin = 'default';
+        let playerInvincible = false;
+        let shieldTimer = 0;
+
+        // --- Player & Game Data (Local & Cloud) ---
+        let gameData = {
+            highScore: 0,
+            stars: 0,
+            skinsOwned: ['default'],
+            currentSkin: 'default',
+            shields: 0,
+            currentLevel: 1,
+            referralPoints: 0,
+            referredUsersCount: 0,
+            usdtBalance: 0
+        };
+
+        // --- Monetization State ---
+        let lastInterstitialTime = 0;
+        const interstitialCooldown = 3 * 60 * 1000; // 3 minutes
+
+        // --- Player Object ---
+        const playerProps = {
+            x: 100,
+            y: 200,
+            width: 30,
+            height: 24,
+            velocityY: 0,
+            gravity: 0.5,
+            jumpStrength: -8,
+            draw: function() {
+                if (!ctx) return;
+                ctx.save();
+                
+                // Apply skin filter
+                let filter = '';
+                if (gameData.currentSkin === 'red') {
+                    filter = 'hue-rotate(120deg)';
+                } else if (gameData.currentSkin === 'green') {
+                    filter = 'hue-rotate(240deg)';
+                }
+                
+                // Draw shield
+                if (playerInvincible) {
+                    ctx.fillStyle = 'rgba(246, 201, 14, 0.5)'; // Golden shield
+                    ctx.beginPath();
+                    ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width, 0, Math.PI * 2);
+                    ctx.fill();
+                    filter += ' brightness(1.5)';
+                }
+
+                ctx.filter = filter;
+                ctx.font = '30px serif';
+                ctx.fillText('🧍', this.x, this.y + this.height);
+                ctx.restore();
+            },
+            update: function() {
+                this.velocityY += this.gravity;
+                this.y += this.velocityY;
+
+                // Prevent falling off top
+                if (this.y < 0) {
+                    this.y = 0;
+                    this.velocityY = 0;
+                }
+
+                // Check for ground collision
+                if (this.y + this.height > canvas.height) {
+                    this.y = canvas.height - this.height;
+                    this.velocityY = 0;
+                    if (gameRunning) {
+                        triggerGameOver();
+                    }
+                }
+
+                // Shield timer
+                if (playerInvincible) {
+                    shieldTimer -= (1000 / 60); // 60 FPS
+                    if (shieldTimer <= 0) {
+                        playerInvincible = false;
+                        shieldTimer = 0;
+                    }
+                }
+            },
+            jump: function() {
+                this.velocityY = this.jumpStrength;
+            }
+        };
+
+        // --- Pipe Object ---
+        class Pipe {
+            constructor(x, y, height, type) {
+                this.x = x;
+                this.y = y;
+                this.width = pipeWidth;
+                this.height = height;
+                this.type = type; // 'top' or 'bottom'
+                this.scored = false;
+            }
+
+            draw() {
+                if (!ctx) return;
+                ctx.fillStyle = '#74BF2E'; // Asteroid color (green for now)
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+                // Simple asteroid texture
+                ctx.fillStyle = '#5a9a24';
+                for(let i = 0; i < 5; i++) {
+                    ctx.beginPath();
+                    ctx.arc(this.x + Math.random() * this.width, this.y + Math.random() * this.height, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            update() {
+                this.x -= gameSpeed;
+            }
+        }
+
+        // ====================================================================
+        // INITIALIZATION
+        // ====================================================================
+
+        /**
+         * The main entry point for the application.
+         */
+        function init() {
+            // --- 1. Grab All DOM Elements ---
+            canvas = document.getElementById('game-canvas');
+            ctx = canvas ? canvas.getContext('2d') : null;
+            
+            if (!canvas || !ctx) {
+                console.error("CRITICAL ERROR: Canvas or Context not found.");
+                document.body.innerHTML = "Error: Could not initialize game canvas. Please refresh.";
+                return;
+            }
+            
+            canvas.style.display = 'block';
+
+            appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            loadingScreen = document.getElementById('loading-screen');
+            appContainer = document.getElementById('app-container');
+            playButton = document.getElementById('playButton');
+            shopButton = document.getElementById('shopButton');
+            backToMenuButton = document.getElementById('backToMenuButton');
+            mainMenuButton = document.getElementById('mainMenuButton');
+            tryAgainButton = document.getElementById('tryAgainButton');
+            continueButton = document.getElementById('continueButton');
+            claimBonusButton = document.getElementById('claimBonusButton');
+            claimDoubleBonusButton = document.getElementById('claimDoubleBonusButton');
+            startScreen = document.getElementById('startScreen');
+            gameOverScreen = document.getElementById('gameOverScreen');
+            levelCompleteScreen = document.getElementById('levelCompleteScreen');
+            shopScreen = document.getElementById('shopScreen');
+            scoreDisplay = document.getElementById('score-display');
+            levelDisplay = document.getElementById('level-display');
+            highScoreDisplay = document.getElementById('high-score-display');
+            gameOverScore = gameOverScreen.querySelector('.score-display span');
+            gameOverStars = gameOverScreen.querySelectorAll('.score-display span')[1];
+            shopStarBalance = document.getElementById('shop-star-balance');
+            bottomNav = document.getElementById('bottom-nav');
+            tabContents = document.querySelectorAll('.tab-content');
+            navButtons = document.querySelectorAll('.nav-btn');
+            homeScreen = document.getElementById('home-screen');
+            referralScreen = document.getElementById('referral-screen');
+            walletScreen = document.getElementById('wallet-screen');
+            referralLinkInput = document.getElementById('referral-link-input');
+            copyLinkBtn = document.getElementById('copy-link-btn');
+            referralCountEl = document.getElementById('referral-count');
+            referralPointsEl = document.getElementById('referral-points');
+            walletStarsEl = document.getElementById('wallet-stars-balance');
+            walletRefPointsEl = document.getElementById('wallet-ref-points-balance');
+            walletUsdtEl = document.getElementById('wallet-usdt-balance');
+            convertStarsBtn = document.getElementById('convert-stars-btn');
+            convertPointsBtn = document.getElementById('convert-points-btn');
+            withdrawBtn = document.getElementById('withdraw-btn');
+            shieldButton = document.getElementById('shield-button');
+            shieldCountEl = document.getElementById('shield-count');
+
+            // --- 2. Initialize Telegram SDK (Safely) ---
+            try {
+                if (window.Telegram && window.Telegram.WebApp) {
+                    telegramWebApp = window.Telegram.WebApp;
+                    telegramWebApp.ready();
+                    telegramWebApp.expand();
+                    isTWA = true;
+                    userId = telegramWebApp.initDataUnsafe?.user?.id?.toString() || 'DEMO_USER_123';
+                    console.log("Telegram SDK Loaded. User ID:", userId);
+                } else {
+                    console.warn("Telegram SDK not found. Running in Demo Mode.");
+                    userId = 'DEMO_USER_123';
+                    isTWA = false;
+                }
+            } catch (e) {
+                console.error("Error initializing Telegram SDK:", e);
+                userId = 'DEMO_USER_123';
+                isTWA = false;
+            }
+
+            // --- 3. Check for Firebase Lib ---
+            if (typeof firebase === 'undefined' || typeof firebase.app === 'undefined') {
+                console.error("CRITICAL: Firebase scripts not found.");
+                isFirebaseInitialized = false;
+            }
+            
+            // --- 4. Bind All Event Listeners ---
+            bindEventListeners();
+
+            // --- 5. Start Application Logic ---
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Show loading screen and start auth
+            loadingScreen.style.display = 'flex';
+            initFirebase();
+        }
+
+        /**
+         * Binds all click/touch events
+         */
+        function bindEventListeners() {
+            // Game Controls
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                if (gameRunning) player.jump();
+            });
+            canvas.addEventListener('mousedown', () => {
+                if (gameRunning) player.jump();
+            });
+
+            // Screen Buttons
+            playButton.addEventListener('click', startGame);
+            tryAgainButton.addEventListener('click', onTryAgainClick);
+            mainMenuButton.addEventListener('click', showMainMenu);
+            continueButton.addEventListener('click', useContinue);
+            claimBonusButton.addEventListener('click', () => claimBonus(false));
+            claimDoubleBonusButton.addEventListener('click', () => claimBonus(true));
+            shieldButton.addEventListener('click', useShield);
+
+            // Shop
+            shopButton.addEventListener('click', showShop);
+            backToMenuButton.addEventListener('click', showMainMenu);
+            document.getElementById('buyShieldButton').addEventListener('click', buyShield);
+            document.getElementById('buyStarsButton').addEventListener('click', buyStars);
+            document.querySelectorAll('.shop-item[data-skin]').forEach(item => {
+                item.addEventListener('click', (e) => {
+                    let skin = item.getAttribute('data-skin');
+                    let button = item.querySelector('button');
+                    if (button.disabled) { // Already equipped
+                        return;
+                    }
+                    if (gameData.skinsOwned.includes(skin)) {
+                        equipSkin(skin);
+                    } else {
+                        buySkin(skin, 100);
+                    }
+                });
+            });
+
+            // Navigation
+            navButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    changeTab(button.getAttribute('data-tab'));
+                });
+            });
+
+            // Referral Tab
+            copyLinkBtn.addEventListener('click', copyReferralLink);
+
+            // Wallet Tab
+            convertStarsBtn.addEventListener('click', convertStars);
+            convertPointsBtn.addEventListener('click', convertReferralPoints);
+            withdrawBtn.addEventListener('click', withdrawUSDT);
+            document.getElementById('create-wallet-btn').addEventListener('click', (e) => {
+                console.log("Create wallet button clicked");
+            });
+        }
+
+        // ====================================================================
+        // FIREBASE & DATA
+        // ====================================================================
+
+        /**
+         * Initializes Firebase and authenticates the user
+         */
+        async function initFirebase() {
+            let demoMode = false;
+            
+            // Get config from our new block
+            const firebaseConfig = CONFIG.FIREBASE_CONFIG;
+            const authToken = (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) ? __initial_auth_token : null;
+
+            if (!firebaseConfig || !authToken || typeof firebase === 'undefined' || typeof firebase.app === 'undefined') {
+                console.warn("Firebase config, Auth Token, or Firebase library not found. Forcing Demo Mode.");
+                demoMode = true;
+            }
+
+            if (demoMode) {
+                await loadGameData(true); // Force demo mode
+                return;
+            }
+
+            try {
+                const app = firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore(app); 
+                auth = firebase.auth(app); 
+                
+                // Use compat functions
+                await auth.signInWithCustomToken(authToken); 
+                
+                userId = auth.currentUser.uid;
+                isFirebaseInitialized = true;
+                console.log("Firebase Authenticated. User:", userId);
+                
+                await loadGameData(false);
+            
+            } catch (error) {
+                console.error("Firebase Init FATAL Error, falling back to demo mode:", error);
+                await loadGameData(true);
+            }
+        }
+
+        /**
+         * Loads user data from Firestore or LocalStorage
+         */
+        async function loadGameData(forceDemoMode = false) {
+            if (isFirebaseInitialized && !forceDemoMode) {
+                try {
+                    console.log(`Loading data from Firestore for user ${userId}...`);
+                    
+                    const docRef = db.doc(`/artifacts/${appId}/users/${userId}/game/data`);
+                    const docSnap = await docRef.get();
+
+                    if (docSnap.exists) {
+                        const cloudData = docSnap.data();
+                        gameData = Object.assign({}, gameData, cloudData);
+                        console.log("Loaded from Firestore:", gameData);
+                    } else {
+                        console.log("New user. Creating Firestore document...");
+                        await saveGameData();
+                    }
+                } catch (error) {
+                    console.error("Error loading from Firestore:", error.message);
+                    console.warn("Falling back to LocalStorage for this session.");
+                    loadFromLocalStorage();
+                }
+            } else {
+                loadFromLocalStorage();
+            }
+
+            finishInitialization();
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const localData = localStorage.getItem('kkoinJumperData');
+                if (localData) {
+                    gameData = Object.assign({}, gameData, JSON.parse(localData));
+                    console.log("Loaded from LocalStorage:", gameData);
+                } else {
+                    console.log("No LocalStorage data, using defaults.");
+                }
+            } catch (e) {
+                console.error("Failed to parse LocalStorage data:", e);
+            }
+        }
+
+        /**
+         * Saves data to Firestore (if available) and LocalStorage (as backup)
+         */
+        async function saveGameData() {
+            try {
+                localStorage.setItem('kkoinJumperData', JSON.stringify(gameData));
+            } catch (e) {
+                console.error("Failed to save to LocalStorage:", e);
+            }
+
+            if (isFirebaseInitialized) {
+                try {
+                    console.log("Saving to Firestore...");
+                    
+                    const docRef = db.doc(`/artifacts/${appId}/users/${userId}/game/data`);
+                    await docRef.set(gameData, { merge: true });
+
+                    console.log("Saved to Firestore.");
+                } catch (error) {
+                    console.error("Error saving to Firestore:", error);
+                }
+            }
+        }
+        
+        /**
+         * Creates the player object with default values
+         */
+        function resetPlayer() {
+            player = Object.assign({}, playerProps); // Use Object.assign for compatibility
+            player.y = canvas.height / 2;
+        }
+
+        /**
+         * Called after data is loaded. Hides loading screen and shows the app.
+         */
+        function finishInitialization() {
+            // This is the fix for the startup crash.
+            // We MUST create the player before calling mainLoop.
+            resetPlayer(); 
+
+            updateAllUI();
+            
+            referralLinkInput.value = `https://t.me/${CONFIG.TELEGRAM_BOT_USERNAME}?start=${userId}`;
+            
+            loadingScreen.style.display = 'none';
+            
+            showMainMenu();
+            
+            // Start the main loop
+            gameRunning = false;
+            mainLoop();
+        }
+
+
+        // ====================================================================
+        // GAME LOGIC
+        // ====================================================================
+
+        function startGame() {
+            console.log("Starting game...");
+            score = 0;
+            stars = 0;
+            level = gameData.currentLevel;
+            continueCount = 1;
+            playerInvincible = false;
+            
+            setupLevel(level);
+
+            resetPlayer();
+            pipes = [];
+            lastPipeTime = 0;
+
+            startScreen.style.display = 'none';
+            gameOverScreen.style.display = 'none';
+            levelCompleteScreen.style.display = 'none';
+            shopScreen.style.display = 'none';
+            
+            updateGameUI();
+            
+            gameRunning = true;
+        }
+
+        function setupLevel(level) {
+            gameData.currentLevel = level;
+            levelDisplay.textContent = `Level ${level}`;
+            
+            const baseSpeed = 2;
+            const baseGap = 150;
+            const baseFreq = 1500;
+            const baseGoal = 10;
+            
+            gameSpeed = baseSpeed + (level - 1) * 0.5;
+            pipeGap = Math.max(120, baseGap - (level - 1) * 10);
+            pipeFrequency = Math.max(1000, baseFreq - (level - 1) * 100);
+            levelGoal = baseGoal + (level - 1) * 2;
+            pipeWidth = 60;
+            
+            const colors = ['#0d113f', '#2c003e', '#4a001e', '#003a20'];
+            canvas.style.backgroundColor = colors[(level - 1) % colors.length];
+        }
+
+        function triggerGameOver() {
+            if (!gameRunning) return;
+            gameRunning = false;
+            
+            if (score > gameData.highScore) {
+                gameData.highScore = score;
+            }
+            gameData.stars += stars;
+            
+            gameOverScore.textContent = score;
+            gameOverStars.textContent = stars;
+            highScoreDisplay.textContent = `Best Score: ${gameData.highScore}`;
+            
+            continueButton.style.display = (continueCount > 0) ? 'block' : 'none';
+            continueButton.textContent = `Watch Ad for Continue (${continueCount})`;
+            
+            saveGameData();
+            
+            setTimeout(() => {
+                gameOverScreen.style.display = 'flex';
+            }, 500);
+        }
+        
+        function onTryAgainClick() {
+            showInterstitialAd();
+            startGame();
+        }
+
+        function showMainMenu() {
+            gameRunning = false;
+            startScreen.style.display = 'flex';
+            gameOverScreen.style.display = 'none';
+            levelCompleteScreen.style.display = 'none';
+            shopScreen.style.display = 'none';
+            shieldButton.style.display = 'none';
+            highScoreDisplay.textContent = `Best Score: ${gameData.highScore}`;
+        }
+
+        function useContinue() {
+            if (continueCount <= 0) return;
+
+            simulateRewardedAd('continue', () => {
+                continueCount--;
+                gameOverScreen.style.display = 'none';
+                
+                player.y = canvas.height / 2;
+                player.velocityY = 0;
+                pipes = pipes.filter(p => p.x > player.x + player.width);
+                
+                activateShield(3000);
+                
+                gameRunning = true;
+            });
+        }
+        
+        function activateShield(duration) {
+            playerInvincible = true;
+            shieldTimer = duration;
+        }
+
+        function useShield() {
+            if (gameData.shields > 0 && !playerInvincible) {
+                gameData.shields--;
+                activateShield(5000);
+                updateGameUI();
+                saveGameData();
+            }
+        }
+
+        function triggerLevelComplete() {
+            gameRunning = false;
+            levelCompleteScreen.style.display = 'flex';
+        }
+
+        function claimBonus(isDouble) {
+            const bonus = 100;
+            
+            if (isDouble) {
+                simulateRewardedAd('double_bonus', () => {
+                    gameData.stars += bonus * 2;
+                    proceedToNextLevel();
+                });
+            } else {
+                gameData.stars += bonus;
+                proceedToNextLevel();
+            }
+        }
+        
+        function proceedToNextLevel() {
+            gameData.currentLevel++;
+            saveGameData();
+            levelCompleteScreen.style.display = 'none';
+            startGame();
+        }
+
+        // ====================================================================
+        // GAME LOOP (UPDATE & DRAW)
+        // ====================================================================
+
+        function mainLoop(timestamp) {
+            if (!ctx) return;
+            
+            // This safety check should be redundant now, but it's good to have
+            if (!player) {
+                resetPlayer();
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (gameRunning) {
+                player.update();
+
+                if (timestamp - lastPipeTime > pipeFrequency) {
+                    let topHeight = Math.random() * (canvas.height - pipeGap - 200) + 50;
+                    pipes.push(new Pipe(canvas.width, 0, topHeight, 'top'));
+                    pipes.push(new Pipe(canvas.width, topHeight + pipeGap, canvas.height - topHeight - pipeGap, 'bottom'));
+                    lastPipeTime = timestamp;
+                }
+
+                for (let i = pipes.length - 1; i >= 0; i--) {
+                    pipes[i].update();
+                    pipes[i].draw();
+
+                    if (isColliding(player, pipes[i])) {
+                        if (playerInvincible) {
+                            playerInvincible = false;
+                            pipes.splice(i, 1);
+                        } else {
+                            triggerGameOver();
+                        }
+                    }
+
+                    if (pipes[i].scored && pipes[i].x < player.x && pipes[i].type === 'top') {
+                        pipes[i].scored = true;
+                        score++;
+                        stars++;
+                        updateGameUI();
+                        
+                        if (score >= levelGoal) {
+                            triggerLevelComplete();
+                        }
+                    }
+
+                    if (pipes[i].x + pipeWidth < 0) {
+                        pipes.splice(i, 1);
+                    }
+                }
+            }
+            
+            if (player && startScreen.style.display === 'flex') {
+                player.y = (canvas.height / 2) + Math.sin(timestamp / 300) * 10;
+                player.draw();
+            } else if (player && gameRunning) {
+                player.draw();
+            }
+            
+            requestAnimationFrame(mainLoop);
+        }
+        
+        function isColliding(player, pipe) {
+            return player.x < pipe.x + pipe.width &&
+                   player.x + player.width > pipe.x &&
+                   player.y < pipe.y + pipe.height &&
+                   player.y + player.height > pipe.y;
+        }
+
+        // ====================================================================
+        // UI & SHOP
+        // ====================================================================
+
+        function showShop() {
+            startScreen.style.display = 'none';
+            shopScreen.style.display = 'flex';
+            updateShopUI();
+        }
+
+        function buyShield() {
+            const cost = 25;
+            if (gameData.stars >= cost) {
+                gameData.stars -= cost;
+                gameData.shields++;
+                updateShopUI();
+                saveGameData();
+                showToast("Shield purchased!");
+            } else {
+                showToast("Not enough stars!");
+            }
+        }
+
+        function buySkin(skinName, cost) {
+            if (gameData.stars >= cost) {
+                gameData.stars -= cost;
+                gameData.skinsOwned.push(skinName);
+                equipSkin(skinName);
+                saveGameData();
+                showToast("Skin purchased!");
+            } else {
+                showToast("Not enough stars!");
+            }
+        }
+        
+        function equipSkin(skinName) {
+            gameData.currentSkin = skinName;
+            updateShopUI();
+            saveGameData();
+        }
+        
+        function buyStars() {
+            const payment = CONFIG.TELEGRAM_STARS_PAYMENT;
+            
+            if (isTWA && telegramWebApp) {
+                telegramWebApp.showInvoice({
+                    currency: payment.CURRENCY,
+                    prices: [{ label: payment.ITEM_LABEL, amount: payment.ITEM_PRICE }],
+                    payload: payment.ITEM_PAYLOAD
+                }, (status, payload) => {
+                    if (status === 'paid') {
+                        console.log("Invoice paid! Payload:", payload);
+                        gameData.stars += 500;
+                        updateAllUI();
+                        saveGameData();
+                        showToast("500 Stars added!");
+                    } else if (status === 'failed') {
+                        showToast("Payment failed. Please try again.");
+                    } else {
+                        showToast("Payment cancelled.");
+                    }
+                });
+            } else {
+                showToast("Telegram Stars payment only available in-app.");
+                gameData.stars += 500;
+                updateAllUI();
+                saveGameData();
+                showToast("500 Demo Stars added!");
+            }
+        }
+
+        function updateAllUI() {
+            updateGameUI();
+            updateShopUI();
+            updateReferralUI();
+            updateWalletUI();
+        }
+
+        function updateGameUI() {
+            scoreDisplay.textContent = `Stars: ${stars}`;
+            levelDisplay.textContent = `Level ${gameData.currentLevel}`;
+            
+            if (gameData.shields > 0 && gameRunning) {
+                shieldButton.style.display = 'flex';
+                shieldCountEl.textContent = gameData.shields;
+                shieldButton.classList.toggle('glowing', playerInvincible);
+            } else {
+                shieldButton.style.display = 'none';
+            }
+        }
+
+        function updateShopUI() {
+            shopStarBalance.textContent = gameData.stars;
+            document.querySelectorAll('.shop-item[data-skin]').forEach(item => {
+                const skin = item.getAttribute('data-skin');
+                const button = item.querySelector('button');
+                
+                if (gameData.currentSkin === skin) {
+                    button.textContent = 'Equipped';
+                    button.disabled = true;
+                    button.className = 'btn btn-disabled';
+                    item.classList.add('purchased');
+                } else if (gameData.skinsOwned.includes(skin)) {
+                    button.textContent = 'Equip';
+                    button.disabled = false;
+                    button.className = 'btn btn-green';
+                    item.classList.add('purchased');
+                } else {
+                    button.textContent = '100 🌟';
+                    button.disabled = false;
+                    button.className = 'btn btn-primary';
+                    item.classList.remove('purchased');
+                }
+            });
+        }
+        
+        function updateReferralUI() {
+            referralCountEl.textContent = gameData.referredUsersCount;
+            referralPointsEl.textContent = gameData.referralPoints;
+        }
+        
+        function updateWalletUI() {
+            walletStarsEl.textContent = gameData.stars;
+            walletRefPointsEl.textContent = gameData.referralPoints;
+            
+            const totalUsdt = gameData.usdtBalance; 
+            
+            walletUsdtEl.textContent = `$${totalUsdt.toFixed(4)}`;
+            withdrawBtn.textContent = `Withdraw $${totalUsdt.toFixed(4)}`;
+            withdrawBtn.disabled = totalUsdt < 10.0;
+            if (withdrawBtn.disabled) {
+                withdrawBtn.classList.add('btn-disabled');
+            } else {
+                withdrawBtn.classList.remove('btn-disabled');
+            }
+        }
+
+        // ====================================================================
+        // NAVIGATION
+        // ====================================================================
+
+        function changeTab(tabId) {
+            tabContents.forEach(content => {
+                content.classList.remove('active');
+            });
+            navButtons.forEach(button => {
+                button.classList.remove('active');
+            });
+
+            document.getElementById(tabId).classList.add('active');
+            document.querySelector(`.nav-btn[data-tab="${tabId}"]`).classList.add('active');
+
+            if (tabId !== 'home-screen' && gameRunning) {
+                gameRunning = false; 
+            }
+            if (tabId === 'home-screen' && !gameRunning) {
+                showMainMenu();
+            }
+            
+            updateAllUI();
+        }
+
+
+        // ====================================================================
+        // REFERRAL & WALLET
+        // ====================================================================
+        
+        function copyReferralLink() {
+            try {
+                referralLinkInput.select();
+                document.execCommand('copy');
+                showToast("Referral link copied!");
+            } catch (err) {
+                showToast("Failed to copy link.");
+            }
+        }
+        
+        async function convertStars() {
+            const starsToConvert = gameData.stars;
+            if (starsToConvert < 1000) {
+                showToast("Need at least 1000 stars to convert.");
+                return;
+            }
+            
+            const usdtEarned = (starsToConvert / 1000) * 0.01;
+            
+            gameData.stars = 0;
+            gameData.usdtBalance += usdtEarned;
+            
+            await saveGameData();
+            updateAllUI();
+            showToast(`+${usdtEarned.toFixed(4)} USDT added!`);
+        }
+        
+        async function convertReferralPoints() {
+            const pointsToConvert = gameData.referralPoints;
+            if (pointsToConvert < 100) {
+                showToast("Need at least 100 points to convert.");
+                return;
+            }
+            
+            const usdtEarned = (pointsToConvert / 100) * 0.01;
+            
+            gameData.referralPoints = 0;
+            gameData.usdtBalance += usdtEarned;
+            
+            await saveGameData();
+            updateAllUI();
+            showToast(`+${usdtEarned.toFixed(4)} USDT added!`);
+        }
+        
+        function withdrawUSDT() {
+            const amount = gameData.usdtBalance;
+            const walletAddress = document.getElementById('wallet-address-input').value;
+            
+            if (amount < 10) {
+                showToast("Minimum $10.00 to withdraw.");
+                return;
+            }
+            if (!walletAddress.startsWith('T') || walletAddress.length < 26) {
+                showToast("Please enter a valid TRC20 address.");
+                return;
+            }
+            
+            console.log(`WITHDRAWAL REQUEST (MUST BE HANDLED BY YOUR SERVER):
+                User: ${userId}
+                Amount: ${amount}
+                Address: ${walletAddress}
+            `);
+            
+            // This is a client-side simulation.
+            // In production, you would write this request to a "withdrawals"
+            // collection in Firestore for your backend to process.
+            gameData.usdtBalance = 0;
+            saveGameData();
+            updateAllUI();
+            showToast("Withdrawal request submitted!");
+            document.getElementById('wallet-address-input').value = '';
+        }
+
+        // ====================================================================
+        // MONETIZATION HOOKS (Placeholders)
+        // ====================================================================
+
+        function simulateRewardedAd(placement, onSuccess) {
+            console.log(`Simulating Rewarded Ad for: ${placement}`);
+            
+            /* ======================================================
+            MONETAG: PASTE YOUR REWARDED AD CODE HERE
+            
+            Example (if using Monetag SDK):
+            
+            showToast("Loading ad...");
+            monetag.TMA.showRewardedAd({
+                onSuccess: () => {
+                    console.log("Monetag Ad complete. Granting reward.");
+                    onSuccess();
+                },
+                onError: (error) => {
+                    console.error("Monetag Ad error:", error);
+                    showToast("Ad failed to load. Please try again.");
+                }
+            });
+            ======================================================
+            */
+
+            // --- Placeholder logic ---
+            showToast("Loading ad...", 1000);
+            setTimeout(() => {
+                console.log("Ad simulation complete. Granting reward.");
+                onSuccess();
+            }, 1000);
+            // --- End Placeholder logic ---
+        }
+
+        function showInterstitialAd() {
+            const now = Date.now();
+            if (now - lastInterstitialTime < interstitialCooldown) {
+                console.log("Interstitial ad blocked by cooldown.");
+                return;
+            }
+            
+            console.log("Showing Interstitial Ad...");
+            lastInterstitialTime = now;
+
+            /* ======================================================
+            MONETAG: PASTE YOUR INTERSTITIAL AD CODE HERE
+            
+            Example (if using Monetag SDK):
+
+            monetag.TMA.showInterstitialAd({
+                onSuccess: () => {
+                    console.log("Monetag Interstitial shown.");
+                },
+                onError: (error) => {
+                    console.error("Monetag Interstitial error:", error);
+                }
+            });
+            ======================================================
+            */
+
+            // --- Placeholder logic ---
+            showToast("Ad placeholder (interstitial)", 1500);
+            // --- End Placeholder logic ---
+        }
+
+        // ====================================================================
+        // UTILITIES
+        // ====================================================================
+
+        function resizeCanvas() {
+            if (!canvas) return;
+            canvas.width = homeScreen.clientWidth;
+            canvas.height = homeScreen.clientHeight;
+        }
+
+        function showToast(message, duration = 2000) {
+            let toast = document.createElement('div');
+            toast.textContent = message;
+            toast.style.position = 'fixed';
+            toast.style.bottom = '80px';
+            toast.style.left = '50%';
+            toast.style.transform = 'translateX(-50%)';
+            toast.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+            toast.style.color = 'white';
+            toast.style.padding = '10px 20px';
+            toast.style.borderRadius = '8px';
+            toast.style.zIndex = '1001';
+            toast.style.transition = 'opacity 0.3s ease';
+            appContainer.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => {
+                    appContainer.removeChild(toast);
+                }, 300);
+            }, duration);
+        }
+        
+        // --- THIS IS THE ENTRY POINT ---
+        init();
+        
+    </script>
+</body>
+</html>
+
