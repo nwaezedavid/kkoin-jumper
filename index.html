@@ -5,12 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Kkoin Jumper</title>
     
-    <!-- 
-      All scripts are at the end of <body> for stability.
-    -->
+    <!-- Telegram WebApp SDK -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <!-- Firebase (Classic Namespaced SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore-compat.js"></script>
+    
+    <!-- Monetag SDK (Provided by user) -->
+    <script src='//libtl.com/sdk.js' data-zone='10135697' data-sdk='show_10135697'></script>
 
     <style>
-        /* CSS remains unchanged */
         :root {
             --bg-primary: #1a1a2e; /* Deep space blue */
             --bg-secondary: #162447; /* Darker blue */
@@ -147,7 +153,7 @@
         
         /* Home screen needs flex to show canvas */
         #home-screen.active {
-            display: flex; 
+            display: flex;  
         }
 
         /* Re-style game screen to be a tab */
@@ -568,14 +574,8 @@
                     </div>
                 </div>
 
-                <div class="ad-banner-placeholder">
-                    <!-- 
-                    ======================================================
-                    MONETAG: PASTE YOUR 320x50 BANNER AD CODE HERE
-                    ======================================================
-                    -->
-                    Ad Banner (320x50)
-                </div>
+                <button id="bonus-stars-btn-ref" class="btn btn-accent" style="width: 100%; margin-top: 20px;">🎁 Click for +10 Bonus Stars 🎁</button>
+
             </div>
 
             <!-- Wallet Tab -->
@@ -620,14 +620,7 @@
                     <a href="https://t.me/CoinvetoBot?start=3AC81229" target="_blank" id="create-wallet-btn" class="btn btn-secondary" style="width: 100%;">Create Crypto Wallet</a>
                 </div>
 
-                <div class="ad-banner-placeholder">
-                    <!-- 
-                    ======================================================
-                    MONETAG: PASTE YOUR 320x50 BANNER AD CODE HERE
-                    ======================================================
-                    -->
-                    Ad Banner (320x50)
-                </div>
+                <button id="bonus-stars-btn-wallet" class="btn btn-accent" style="width: 100%; margin-top: 20px;">🎁 Click for +10 Bonus Stars 🎁</button>
             </div>
 
         </div>
@@ -664,20 +657,6 @@
 
     <!-- 
     ====================================================================
-    SCRIPT LIBRARIES
-    ====================================================================
-    -->
-    
-    <!-- Telegram WebApp SDK -->
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-    <!-- Firebase (Classic Namespaced SDK) -->
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
-
-    <!-- 
-    ====================================================================
     GAME JAVASCRIPT
     ====================================================================
     -->
@@ -685,20 +664,25 @@
         
         /* ====================================================================
         CONFIGURATION 
-        (This is where you will add your settings)
         ====================================================================
         */
-        const CONFIG = {
-            // Paste your Firebase Config JSON object here
-            FIREBASE_CONFIG: null, 
-            /* Example:
+        const firebaseConfig = {
+  apiKey: "AIzaSyCy_O0S9-8dl0speHadGHsAquPYoc0Y2Ho",
+  authDomain: "kkoin-jumper.firebaseapp.com",
+  projectId: "kkoin-jumper",
+  storageBucket: "kkoin-jumper.firebasestorage.app",
+  messagingSenderId: "134192965989",
+  appId: "1:134192965989:web:48684a4cf79b97f096998c",
+  measurementId: "G-PM676FEMVF"
+};  
+            /* Example (Replace null above with your actual config):
             FIREBASE_CONFIG: {
-                apiKey: "...",
-                authDomain: "...",
-                projectId: "...",
-                storageBucket: "...",
-                messagingSenderId: "...",
-                appId: "..."
+                apiKey: "AIzaSy...",
+                authDomain: "kkoingame.firebaseapp.com",
+                projectId: "kkoingame",
+                storageBucket: "kkoingame.appspot.com",
+                messagingSenderId: "1234567890",
+                appId: "1:1234567890:web:abcdef123456"
             },
             */
 
@@ -722,9 +706,9 @@
         let isTWA = false;
         let userId = null;
         let isFirebaseInitialized = false;
-        let appId = 'default-app-id';
+        let appId = 'default-app-id'; // Will be overwritten by __app_id in live environment
 
-        // --- DOM Elements ---
+        // --- DOM Elements (Declared here, assigned in init) ---
         let canvas, ctx;
         let loadingScreen, appContainer;
         let playButton, shopButton, backToMenuButton, mainMenuButton, tryAgainButton, continueButton, claimBonusButton, claimDoubleBonusButton;
@@ -734,6 +718,8 @@
         let homeScreen, referralScreen, walletScreen;
         let referralLinkInput, copyLinkBtn, referralCountEl, referralPointsEl, walletStarsEl, walletRefPointsEl, walletUsdtEl, convertStarsBtn, convertPointsBtn, withdrawBtn;
         let shieldButton, shieldCountEl;
+        let bonusStarsRefBtn, bonusStarsWalletBtn;
+
 
         // --- Game State ---
         let player, pipes, score, stars, level;
@@ -763,73 +749,8 @@
         let lastInterstitialTime = 0;
         const interstitialCooldown = 3 * 60 * 1000; // 3 minutes
 
-        // --- Player Object ---
-        const playerProps = {
-            x: 100,
-            y: 200,
-            width: 30,
-            height: 24,
-            velocityY: 0,
-            gravity: 0.5,
-            jumpStrength: -8,
-            draw: function() {
-                if (!ctx) return;
-                ctx.save();
-                
-                // Apply skin filter
-                let filter = '';
-                if (gameData.currentSkin === 'red') {
-                    filter = 'hue-rotate(120deg)';
-                } else if (gameData.currentSkin === 'green') {
-                    filter = 'hue-rotate(240deg)';
-                }
-                
-                // Draw shield
-                if (playerInvincible) {
-                    ctx.fillStyle = 'rgba(246, 201, 14, 0.5)'; // Golden shield
-                    ctx.beginPath();
-                    ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width, 0, Math.PI * 2);
-                    ctx.fill();
-                    filter += ' brightness(1.5)';
-                }
-
-                ctx.filter = filter;
-                ctx.font = '30px serif';
-                ctx.fillText('🧍', this.x, this.y + this.height);
-                ctx.restore();
-            },
-            update: function() {
-                this.velocityY += this.gravity;
-                this.y += this.velocityY;
-
-                // Prevent falling off top
-                if (this.y < 0) {
-                    this.y = 0;
-                    this.velocityY = 0;
-                }
-
-                // Check for ground collision
-                if (this.y + this.height > canvas.height) {
-                    this.y = canvas.height - this.height;
-                    this.velocityY = 0;
-                    if (gameRunning) {
-                        triggerGameOver();
-                    }
-                }
-
-                // Shield timer
-                if (playerInvincible) {
-                    shieldTimer -= (1000 / 60); // 60 FPS
-                    if (shieldTimer <= 0) {
-                        playerInvincible = false;
-                        shieldTimer = 0;
-                    }
-                }
-            },
-            jump: function() {
-                this.velocityY = this.jumpStrength;
-            }
-        };
+        // --- Player Object (Defined inside init for safety) ---
+        let playerProps = null; 
 
         // --- Pipe Object ---
         class Pipe {
@@ -873,14 +794,17 @@
             ctx = canvas ? canvas.getContext('2d') : null;
             
             if (!canvas || !ctx) {
-                console.error("CRITICAL ERROR: Canvas or Context not found.");
-                document.body.innerHTML = "Error: Could not initialize game canvas. Please refresh.";
+                // Failsafe if structural fix failed.
+                console.error("CRITICAL ERROR: Canvas or Context not found. Re-check structural fix.");
                 return;
             }
             
             canvas.style.display = 'block';
 
+            // Get required environment variables
             appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            
+            // Map all DOM elements
             loadingScreen = document.getElementById('loading-screen');
             appContainer = document.getElementById('app-container');
             playButton = document.getElementById('playButton');
@@ -919,8 +843,73 @@
             withdrawBtn = document.getElementById('withdraw-btn');
             shieldButton = document.getElementById('shield-button');
             shieldCountEl = document.getElementById('shield-count');
+            bonusStarsRefBtn = document.getElementById('bonus-stars-btn-ref');
+            bonusStarsWalletBtn = document.getElementById('bonus-stars-btn-wallet');
 
-            // --- 2. Initialize Telegram SDK (Safely) ---
+            // --- 2. Define Player Object (Must be done after ctx exists) ---
+            playerProps = {
+                x: 100,
+                y: 200,
+                width: 30,
+                height: 24,
+                velocityY: 0,
+                gravity: 0.5,
+                jumpStrength: -8,
+                draw: function() {
+                    if (!ctx) return;
+                    ctx.save();
+                    
+                    let filter = '';
+                    if (gameData.currentSkin === 'red') {
+                        filter = 'hue-rotate(120deg)';
+                    } else if (gameData.currentSkin === 'green') {
+                        filter = 'hue-rotate(240deg)';
+                    }
+                    
+                    if (playerInvincible) {
+                        ctx.fillStyle = 'rgba(246, 201, 14, 0.5)';
+                        ctx.beginPath();
+                        ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.width, 0, Math.PI * 2);
+                        ctx.fill();
+                        filter += ' brightness(1.5)';
+                    }
+
+                    ctx.filter = filter;
+                    ctx.font = '30px serif';
+                    ctx.fillText('🧍', this.x, this.y + this.height);
+                    ctx.restore();
+                },
+                update: function() {
+                    this.velocityY += this.gravity;
+                    this.y += this.velocityY;
+
+                    if (this.y < 0) {
+                        this.y = 0;
+                        this.velocityY = 0;
+                    }
+
+                    if (this.y + this.height > canvas.height) {
+                        this.y = canvas.height - this.height;
+                        this.velocityY = 0;
+                        if (gameRunning) {
+                            triggerGameOver();
+                        }
+                    }
+
+                    if (playerInvincible) {
+                        shieldTimer -= (1000 / 60);
+                        if (shieldTimer <= 0) {
+                            playerInvincible = false;
+                            shieldTimer = 0;
+                        }
+                    }
+                },
+                jump: function() {
+                    this.velocityY = this.jumpStrength;
+                }
+            };
+            
+            // --- 3. Initialize Telegram SDK (Safely) ---
             try {
                 if (window.Telegram && window.Telegram.WebApp) {
                     telegramWebApp = window.Telegram.WebApp;
@@ -938,12 +927,6 @@
                 console.error("Error initializing Telegram SDK:", e);
                 userId = 'DEMO_USER_123';
                 isTWA = false;
-            }
-
-            // --- 3. Check for Firebase Lib ---
-            if (typeof firebase === 'undefined' || typeof firebase.app === 'undefined') {
-                console.error("CRITICAL: Firebase scripts not found.");
-                isFirebaseInitialized = false;
             }
             
             // --- 4. Bind All Event Listeners ---
@@ -1009,14 +992,13 @@
 
             // Referral Tab
             copyLinkBtn.addEventListener('click', copyReferralLink);
+            bonusStarsRefBtn.addEventListener('click', showRewardedPopup);
 
             // Wallet Tab
             convertStarsBtn.addEventListener('click', convertStars);
             convertPointsBtn.addEventListener('click', convertReferralPoints);
             withdrawBtn.addEventListener('click', withdrawUSDT);
-            document.getElementById('create-wallet-btn').addEventListener('click', (e) => {
-                console.log("Create wallet button clicked");
-            });
+            bonusStarsWalletBtn.addEventListener('click', showRewardedPopup);
         }
 
         // ====================================================================
@@ -1029,7 +1011,6 @@
         async function initFirebase() {
             let demoMode = false;
             
-            // Get config from our new block
             const firebaseConfig = CONFIG.FIREBASE_CONFIG;
             const authToken = (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) ? __initial_auth_token : null;
 
@@ -1071,7 +1052,8 @@
                 try {
                     console.log(`Loading data from Firestore for user ${userId}...`);
                     
-                    const docRef = db.doc(`/artifacts/${appId}/users/${userId}/game/data`);
+                    // Use standard v8 syntax
+                    const docRef = db.collection('artifacts').doc(appId).collection('users').doc(userId).collection('game').doc('data');
                     const docSnap = await docRef.get();
 
                     if (docSnap.exists) {
@@ -1122,7 +1104,7 @@
                 try {
                     console.log("Saving to Firestore...");
                     
-                    const docRef = db.doc(`/artifacts/${appId}/users/${userId}/game/data`);
+                    const docRef = db.collection('artifacts').doc(appId).collection('users').doc(userId).collection('game').doc('data');
                     await docRef.set(gameData, { merge: true });
 
                     console.log("Saved to Firestore.");
@@ -1144,8 +1126,7 @@
          * Called after data is loaded. Hides loading screen and shows the app.
          */
         function finishInitialization() {
-            // This is the fix for the startup crash.
-            // We MUST create the player before calling mainLoop.
+            // This ensures the player object is created before mainLoop starts
             resetPlayer(); 
 
             updateAllUI();
@@ -1311,9 +1292,10 @@
         function mainLoop(timestamp) {
             if (!ctx) return;
             
-            // This safety check should be redundant now, but it's good to have
+            // Safety check for player object existence
             if (!player) {
-                resetPlayer();
+                requestAnimationFrame(mainLoop);
+                return;
             }
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1328,37 +1310,43 @@
                     lastPipeTime = timestamp;
                 }
 
-                for (let i = pipes.length - 1; i >= 0; i--) {
-                    pipes[i].update();
-                    pipes[i].draw();
+                // Check pipes (safely check if pipes is defined and has length)
+                if (pipes && pipes.length > 0) {
+                    for (let i = pipes.length - 1; i >= 0; i--) {
+                        pipes[i].update();
+                        pipes[i].draw();
 
-                    if (isColliding(player, pipes[i])) {
-                        if (playerInvincible) {
-                            playerInvincible = false;
+                        if (isColliding(player, pipes[i])) {
+                            if (playerInvincible) {
+                                playerInvincible = false;
+                                shieldTimer = 0;
+                                pipes.splice(i, 1);
+                            } else {
+                                triggerGameOver();
+                            }
+                        }
+
+                        // Scoring Logic (Check if NOT scored)
+                        if (!pipes[i].scored && pipes[i].x < player.x && pipes[i].type === 'top') {
+                            pipes[i].scored = true;
+                            score++;
+                            stars++;
+                            updateGameUI();
+                            
+                            if (score >= levelGoal) {
+                                triggerLevelComplete();
+                            }
+                        }
+
+                        if (pipes[i].x + pipeWidth < 0) {
                             pipes.splice(i, 1);
-                        } else {
-                            triggerGameOver();
                         }
-                    }
-
-                    if (pipes[i].scored && pipes[i].x < player.x && pipes[i].type === 'top') {
-                        pipes[i].scored = true;
-                        score++;
-                        stars++;
-                        updateGameUI();
-                        
-                        if (score >= levelGoal) {
-                            triggerLevelComplete();
-                        }
-                    }
-
-                    if (pipes[i].x + pipeWidth < 0) {
-                        pipes.splice(i, 1);
                     }
                 }
             }
             
-            if (player && startScreen.style.display === 'flex') {
+            // Menu animation logic
+            if (startScreen.style.display === 'flex' || gameOverScreen.style.display === 'flex') {
                 player.y = (canvas.height / 2) + Math.sin(timestamp / 300) * 10;
                 player.draw();
             } else if (player && gameRunning) {
@@ -1419,7 +1407,7 @@
         function buyStars() {
             const payment = CONFIG.TELEGRAM_STARS_PAYMENT;
             
-            if (isTWA && telegramWebApp) {
+            if (isTWA && telegramWebApp && telegramWebApp.showInvoice) {
                 telegramWebApp.showInvoice({
                     currency: payment.CURRENCY,
                     prices: [{ label: payment.ITEM_LABEL, amount: payment.ITEM_PRICE }],
@@ -1438,11 +1426,10 @@
                     }
                 });
             } else {
-                showToast("Telegram Stars payment only available in-app.");
+                showToast("Telegram Stars payment only available in-app (Demo Stars added).");
                 gameData.stars += 500;
                 updateAllUI();
                 saveGameData();
-                showToast("500 Demo Stars added!");
             }
         }
 
@@ -1500,7 +1487,7 @@
             walletStarsEl.textContent = gameData.stars;
             walletRefPointsEl.textContent = gameData.referralPoints;
             
-            const totalUsdt = gameData.usdtBalance; 
+            const totalUsdt = gameData.usdtBalance;  
             
             walletUsdtEl.textContent = `$${totalUsdt.toFixed(4)}`;
             withdrawBtn.textContent = `Withdraw $${totalUsdt.toFixed(4)}`;
@@ -1605,9 +1592,7 @@
                 Address: ${walletAddress}
             `);
             
-            // This is a client-side simulation.
-            // In production, you would write this request to a "withdrawals"
-            // collection in Firestore for your backend to process.
+            // Client-side simulation: reset balance after request
             gameData.usdtBalance = 0;
             saveGameData();
             updateAllUI();
@@ -1616,38 +1601,25 @@
         }
 
         // ====================================================================
-        // MONETIZATION HOOKS (Placeholders)
+        // MONETIZATION HOOKS
         // ====================================================================
 
         function simulateRewardedAd(placement, onSuccess) {
-            console.log(`Simulating Rewarded Ad for: ${placement}`);
+            console.log(`Triggering Rewarded Ad for: ${placement}`);
             
             /* ======================================================
-            MONETAG: PASTE YOUR REWARDED AD CODE HERE
-            
-            Example (if using Monetag SDK):
-            
-            showToast("Loading ad...");
-            monetag.TMA.showRewardedAd({
-                onSuccess: () => {
-                    console.log("Monetag Ad complete. Granting reward.");
-                    onSuccess();
-                },
-                onError: (error) => {
-                    console.error("Monetag Ad error:", error);
-                    showToast("Ad failed to load. Please try again.");
-                }
-            });
+            MONETAG: REWARDED INTERSTITIAL CODE IS HERE
             ======================================================
             */
 
-            // --- Placeholder logic ---
             showToast("Loading ad...", 1000);
-            setTimeout(() => {
-                console.log("Ad simulation complete. Granting reward.");
-                onSuccess();
-            }, 1000);
-            // --- End Placeholder logic ---
+
+            show_10135697().then(() => {
+                onSuccess(); 
+            }).catch(e => {
+                 console.error("Monetag Ad error:", e);
+                 showToast("Ad failed to load. Please try again.");
+            });
         }
 
         function showInterstitialAd() {
@@ -1661,24 +1633,42 @@
             lastInterstitialTime = now;
 
             /* ======================================================
-            MONETAG: PASTE YOUR INTERSTITIAL AD CODE HERE
-            
-            Example (if using Monetag SDK):
-
-            monetag.TMA.showInterstitialAd({
-                onSuccess: () => {
-                    console.log("Monetag Interstitial shown.");
-                },
-                onError: (error) => {
-                    console.error("Monetag Interstitial error:", error);
-                }
-            });
+            MONETAG: IN-APP INTERSTITIAL CODE IS HERE
             ======================================================
             */
 
-            // --- Placeholder logic ---
-            showToast("Ad placeholder (interstitial)", 1500);
-            // --- End Placeholder logic ---
+            show_10135697({
+              type: 'inApp',
+              inAppSettings: {
+                frequency: 2,
+                capping: 0.1,
+                interval: 30,
+                timeout: 5,
+                everyPage: false
+              }
+            });
+        }
+
+        function showRewardedPopup() {
+            console.log("Triggering Rewarded Popup...");
+
+            /* ======================================================
+            MONETAG: REWARDED POPUP CODE IS HERE
+            ======================================================
+            */
+
+            showToast("Loading ad offer...", 1000);
+
+            show_10135697('pop').then(() => {
+                // Reward for successfully opening the offer page
+                gameData.stars += 10;
+                saveGameData();
+                updateAllUI();
+                showToast("Bonus! +10 Stars added!");
+            }).catch(e => {
+                console.error("Monetag Popup error:", e);
+                showToast("Offer failed to load.");
+            });
         }
 
         // ====================================================================
@@ -1714,10 +1704,9 @@
             }, duration);
         }
         
-        // --- THIS IS THE ENTRY POINT ---
-        init();
+        // --- FINAL ENTRY POINT ---
+        window.onload = init;
         
     </script>
 </body>
 </html>
-
