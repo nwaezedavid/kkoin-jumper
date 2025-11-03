@@ -937,6 +937,7 @@
             
             // --- 4. Bind All Event Listeners ---
             bindEventListeners();
+            setupNavigationHandlers(); 
 
             // --- 5. Start Application Logic ---
             resizeCanvas();
@@ -948,7 +949,7 @@
         }
 
         /**
-         * Binds all click/touch events
+         * Binds all click/touch events (Non-navigation elements)
          */
         function bindEventListeners() {
             // Game Controls
@@ -989,13 +990,6 @@
                 });
             });
 
-            // Navigation
-            navButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    changeTab(button.getAttribute('data-tab'));
-                });
-            });
-
             // Referral Tab
             copyLinkBtn.addEventListener('click', copyReferralLink);
             bonusStarsRefBtn.addEventListener('click', showRewardedPopup);
@@ -1005,6 +999,23 @@
             convertPointsBtn.addEventListener('click', convertReferralPoints);
             withdrawBtn.addEventListener('click', withdrawUSDT);
             bonusStarsWalletBtn.addEventListener('click', showRewardedPopup);
+        }
+        
+        /**
+         * FIX: Dedicated handler setup to guarantee listeners attach to nav buttons.
+         * Uses Event Delegation on the parent #bottom-nav element.
+         */
+        function setupNavigationHandlers() {
+             bottomNav.addEventListener('click', (event) => {
+                // Find the closest parent button that has the class .nav-btn
+                const targetButton = event.target.closest('.nav-btn');
+                
+                if (targetButton) {
+                    // Get the data-tab attribute from the button
+                    const tabId = targetButton.getAttribute('data-tab');
+                    changeTab(tabId);
+                }
+            });
         }
 
         // ====================================================================
