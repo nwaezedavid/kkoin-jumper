@@ -393,13 +393,6 @@
         }
 
         /* Shop Styles */
-        .scrollable-content {
-            overflow-y: auto;
-            max-height: calc(100vh - 300px); /* Adjust based on header/footer size */
-            padding-bottom: 20px;
-            width: 100%;
-        }
-
         #shop-items {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -448,6 +441,12 @@
             border-radius: 8px;
         }
 
+        .scrollable-content {
+            max-height: calc(100vh - 220px); /* Height minus header, padding, and nav bar */
+            overflow-y: auto;
+            width: 100%;
+        }
+
     </style>
 </head>
 <body>
@@ -471,7 +470,7 @@
                 <button id="shield-button">🛡️ <span id="shield-count">0</span></button>
 
                 <!-- Start Screen (Overlay) -->
-                <div id="startScreen" class="screen" style="display: flex;"> <!-- Default show: flex -->
+                <div id="startScreen" class="screen" style="display: none;"> <!-- Hidden by default, shown by JS -->
                     <h1>Kkoin Jumper</h1>
                     <p>Tap to jump and avoid the asteroids!</p>
                     <p id="high-score-display">Best Score: 0</p>
@@ -480,7 +479,7 @@
                 </div>
 
                 <!-- Game Over Screen (Overlay) -->
-                <div id="gameOverScreen" class="screen" style="display: none;">
+                <div id="gameOverScreen" class="screen">
                     <h1>Game Over</h1>
                     <div class="score-display">Score: <span>0</span></div>
                     <div class="score-display">Stars: <span>0</span></div>
@@ -491,7 +490,7 @@
                 </div>
 
                 <!-- Level Complete Screen (Overlay) -->
-                <div id="levelCompleteScreen" class="screen" style="display: none;">
+                <div id="levelCompleteScreen" class="screen">
                     <h1>Level Complete!</h1>
                     <div class="score-display">Level Bonus: <span>+100 🌟</span></div>
                     <p>Great job! Get ready for the next level.</p>
@@ -500,18 +499,17 @@
                 </div>
 
                 <!-- Shop Screen (Overlay) -->
-                <div id="shopScreen" class="screen" style="display: none;">
+                <div id="shopScreen" class="screen">
                     <div style="width: 100%; text-align: left;">
                         <button id="backToMenuButton" class="btn-secondary" style="padding: 10px 20px; font-size: 0.9rem; min-width: 0;">&lt; Back</button>
                     </div>
-                    <h1>Shop</h1>
-                    <p>Spend your Stars on upgrades and skins!</p>
+                    <h1 style="margin-bottom: 0.5rem;">Shop</h1>
+                    <p style="margin-bottom: 20px;">Spend your Stars on upgrades and skins!</p>
                     <div class="stat-item" style="max-width: 300px; margin: 0 auto 20px;">
                         <div class="label">Your Stars</div>
                         <div id="shop-star-balance" class="value accent">0</div>
                     </div>
-                    <!-- Added scrollable wrapper here -->
-                    <div class="scrollable-content"> 
+                    <div class="scrollable-content">
                         <div id="shop-items">
                             <!-- Power-up -->
                             <div class="shop-item">
@@ -677,17 +675,16 @@
         */
         const CONFIG = {
             // Paste your Firebase Config JSON object here
-            FIREBASE_CONFIG: null,  
-            /* Example (Replace null above with your actual config):
             FIREBASE_CONFIG: {
-                apiKey: "AIzaSy...",
-                authDomain: "kkoingame.firebaseapp.com",
-                projectId: "kkoingame",
-                storageBucket: "kkoingame.appspot.com",
-                messagingSenderId: "1234567890",
-                appId: "1:1234567890:web:abcdef123456"
+              apiKey: "AIzaSyCy_O0S9-8dl0speHadGHsAquPYoc0Y2Ho",
+              authDomain: "kkoin-jumper.firebaseapp.com",
+              projectId: "kkoin-jumper",
+              storageBucket: "kkoin-jumper.firebasestorage.app",
+              messagingSenderId: "134192965989",
+              appId: "1:134192965989:web:48684a4cf79b97f096998c",
+              measurementId: "G-PM676FEMVF"
             },
-            */
+            
 
             // Your Telegram bot's username (without the '@')
             TELEGRAM_BOT_USERNAME: "KkoinJumperBot",
@@ -797,7 +794,7 @@
             ctx = canvas ? canvas.getContext('2d') : null;
             
             if (!canvas || !ctx) {
-                // Failsafe if structural fix failed.
+                // If this fails, the structural fix has failed, but we log anyway.
                 console.error("CRITICAL ERROR: Canvas or Context not found. Re-check structural fix.");
                 return;
             }
@@ -848,6 +845,7 @@
             shieldCountEl = document.getElementById('shield-count');
             bonusStarsRefBtn = document.getElementById('bonus-stars-btn-ref');
             bonusStarsWalletBtn = document.getElementById('bonus-stars-btn-wallet');
+
 
             // --- 2. Define Player Object (Must be done after ctx exists) ---
             playerProps = {
@@ -986,15 +984,12 @@
                 });
             });
 
-            // Navigation - Event Delegation is used here (most reliable)
-            bottomNav.addEventListener('click', (e) => {
-                const targetButton = e.target.closest('.nav-btn');
-                if (targetButton) {
-                    const tabId = targetButton.getAttribute('data-tab');
-                    if (tabId) {
-                        changeTab(tabId);
-                    }
-                }
+            // Navigation (Delegation removed, using direct attachment for guaranteed response)
+            navButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    // Manually added event listener to ensure clicks work
+                    changeTab(button.getAttribute('data-tab'));
+                });
             });
 
             // Referral Tab
@@ -1511,7 +1506,7 @@
         // ====================================================================
 
         function changeTab(tabId) {
-            // 1. Deactivate all
+            // Deactivate all
             tabContents.forEach(content => {
                 content.classList.remove('active');
             });
@@ -1519,19 +1514,16 @@
                 button.classList.remove('active');
             });
 
-            // 2. Activate target tab and button
+            // Activate target tab and button
             const activeContent = document.getElementById(tabId);
-            const activeNavButton = document.querySelector(`.nav-btn[data-tab="${tabId}"]`);
-            
             activeContent.classList.add('active');
-            activeNavButton.classList.add('active');
-
-            // 3. Scroll to top instantly for mobile UX
-            if (tabId !== 'home-screen' && activeContent) {
-                 activeContent.scrollTop = 0;
+            document.querySelector(`.nav-btn[data-tab="${tabId}"]`).classList.add('active');
+            
+            // Reset scroll position instantly for mobile UX
+            if (activeContent) {
+                activeContent.scrollTop = 0; 
             }
 
-            // 4. Game state control
             if (tabId !== 'home-screen' && gameRunning) {
                 gameRunning = false; 
             }
