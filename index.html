@@ -126,9 +126,10 @@
 
         /* Main app content area */
         #main-content {
+            width: 100%; /* Important for mobile layout */
+            height: 100%; /* Important for mobile layout */
             flex-grow: 1;
             position: relative;
-            overflow-y: auto;
             /* Hide scrollbar */
             -ms-overflow-style: none;  /* IE and Edge */
             scrollbar-width: none;  /* Firefox */
@@ -142,9 +143,17 @@
             display: none; /* All tabs hidden by default */
             padding: 20px;
             padding-bottom: 80px; /* Space for nav bar */
+            width: 100%;
             height: 100%;
             box-sizing: border-box;
+            overflow: hidden; /* Prevent internal content from messing up flex */
+        }
+        
+        .scrollable-content {
+            height: 100%;
             overflow-y: auto;
+            -webkit-overflow-scrolling: touch; /* Enable smooth scrolling on iOS */
+            padding: 0 0 20px 0; /* Add bottom padding above nav */
         }
 
         .tab-content.active {
@@ -504,7 +513,7 @@
                         <div id="shop-star-balance" class="value accent">0</div>
                     </div>
 
-                    <div id="shop-items">
+                    <div id="shop-items" class="scrollable-content">
                         <!-- Power-up -->
                         <div class="shop-item">
                             <div class="icon">🛡️</div>
@@ -545,82 +554,85 @@
 
             <!-- Referral Tab -->
             <div id="referral-screen" class="tab-content">
-                <div class="card">
-                    <h2>Refer Friends, Earn Points!</h2>
-                    <p>Share your unique link with friends. For every user who joins, you'll earn 150 referral points!</p>
-                    <div class="stat-grid">
-                        <div class="stat-item">
-                            <div class="label">Users Referred</div>
-                            <div id="referral-count" class="value">0</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="label">Referral Points</div>
-                            <div id="referral-points" class="value accent">0</div>
+                <div class="scrollable-content">
+                    <div class="card">
+                        <h2>Refer Friends, Earn Points!</h2>
+                        <p>Share your unique link with friends. For every user who joins, you'll earn 150 referral points!</p>
+                        <div class="stat-grid">
+                            <div class="stat-item">
+                                <div class="label">Users Referred</div>
+                                <div id="referral-count" class="value">0</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="label">Referral Points</div>
+                                <div id="referral-points" class="value accent">0</div>
+                            </div>
                         </div>
                     </div>
-                </div>
-                
-                <div class="card">
-                    <h2>Share Your Link</h2>
-                    <p class="share-message">"🚀 Join me on Kkoin Jumper! It's a fun game where you can jump through space and earn crypto rewards. Use my link to get started! 🧍"</p>
                     
-                    <input type="text" id="referral-link-input" readonly>
-                    <button id="copy-link-btn" class="btn btn-primary" style="width: 100%;">Copy My Link</button>
-                    
-                    <div class="share-buttons">
-                        <!-- These would be implemented with TWA's share features -->
-                        <button class="btn btn-primary" style="min-width: 0; padding: 10px 15px;">Share (Telegram)</button>
-                        <button class="btn btn-primary" style="min-width: 0; padding: 10px 15px;">Share (Other)</button>
+                    <div class="card">
+                        <h2>Share Your Link</h2>
+                        <p class="share-message">"🚀 Join me on Kkoin Jumper! It's a fun game where you can jump through space and earn crypto rewards. Use my link to get started! 🧍"</p>
+                        
+                        <input type="text" id="referral-link-input" readonly>
+                        <button id="copy-link-btn" class="btn btn-primary" style="width: 100%;">Copy My Link</button>
+                        
+                        <div class="share-buttons">
+                            <!-- These would be implemented with TWA's share features -->
+                            <button class="btn btn-primary" style="min-width: 0; padding: 10px 15px;">Share (Telegram)</button>
+                            <button class="btn btn-primary" style="min-width: 0; padding: 10px 15px;">Share (Other)</button>
+                        </div>
                     </div>
+
+                    <button id="bonus-stars-btn-ref" class="btn btn-accent" style="width: 100%; margin-top: 20px;">🎁 Click for +10 Bonus Stars 🎁</button>
                 </div>
-
-                <button id="bonus-stars-btn-ref" class="btn btn-accent" style="width: 100%; margin-top: 20px;">🎁 Click for +10 Bonus Stars 🎁</button>
-
             </div>
 
             <!-- Wallet Tab -->
             <div id="wallet-screen" class="tab-content">
-                <div class="card">
-                    <h2>Your Kkoin Wallet</h2>
-                    <div class="stat-grid">
-                        <div class="stat-item">
-                            <div class="label">Stars (Game)</div>
-                            <div id="wallet-stars-balance" class="value accent">0</div>
+                <div class="scrollable-content">
+                    <div class="card">
+                        <h2>Your Kkoin Wallet</h2>
+                        <div class="stat-grid">
+                            <div class="stat-item">
+                                <div class="label">Stars (Game)</div>
+                                <div id="wallet-stars-balance" class="value accent">0</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="label">Ref Points</div>
+                                <div id="wallet-ref-points-balance" class="value">0</div>
+                            </div>
                         </div>
                         <div class="stat-item">
-                            <div class="label">Ref Points</div>
-                            <div id="wallet-ref-points-balance" class="value">0</div>
+                            <div class="label">Total USDT (Est.)</div>
+                            <div id="wallet-usdt-balance" class="value" style="color: var(--btn-green);">$0.0000</div>
                         </div>
                     </div>
-                    <div class="stat-item">
-                        <div class="label">Total USDT (Est.)</div>
-                        <div id="wallet-usdt-balance" class="value" style="color: var(--btn-green);">$0.0000</div>
+
+                    <div class="card">
+                        <h2>Convert to USDT</h2>
+                        <p>Convert your Stars and Points into USDT. Minimum $10.00 to withdraw.</p>
+                        <p>1000 Stars = $0.01 USDT</p>
+                        <p>100 Ref Points = $0.01 USDT (10,000 for $1)</p>
+                        <button id="convert-stars-btn" class="btn btn-primary" style="width: 100%;">Convert Stars to USDT</button>
+                        <button id="convert-points-btn" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Convert Ref Points to USDT</button>
                     </div>
-                </div>
 
-                <div class="card">
-                    <h2>Convert to USDT</h2>
-                    <p>Convert your Stars and Points into USDT. Minimum $10.00 to withdraw.</p>
-                    <p>1000 Stars = $0.01 USDT</p>
-                    <p>100 Ref Points = $0.01 USDT (10,000 for $1)</p>
-                    <button id="convert-stars-btn" class="btn btn-primary" style="width: 100%;">Convert Stars to USDT</button>
-                    <button id="convert-points-btn" class="btn btn-primary" style="width: 100%; margin-top: 10px;">Convert Ref Points to USDT</button>
-                </div>
+                    <div class="card">
+                        <h2>Withdraw USDT</h2>
+                        <p>Enter your TRC20 (Tron) wallet address to withdraw your USDT earnings. Minimum $10.00.</p>
+                        <input type="text" id="wallet-address-input" placeholder="Enter your TRC20 wallet address">
+                        <button id="withdraw-btn" class="btn btn-green" style="width: 100%;">Withdraw $0.00</button>
+                    </div>
 
-                <div class="card">
-                    <h2>Withdraw USDT</h2>
-                    <p>Enter your TRC20 (Tron) wallet address to withdraw your USDT earnings. Minimum $10.00.</p>
-                    <input type="text" id="wallet-address-input" placeholder="Enter your TRC20 wallet address">
-                    <button id="withdraw-btn" class="btn btn-green" style="width: 100%;">Withdraw $0.00</button>
-                </div>
+                    <div class="card">
+                        <h2>Create a Crypto Wallet</h2>
+                        <p>Don't have a wallet? You can create one easily to store your earnings.</p>
+                        <a href="https://t.me/CoinvetoBot?start=3AC81229" target="_blank" id="create-wallet-btn" class="btn btn-secondary" style="width: 100%;">Create Crypto Wallet</a>
+                    </div>
 
-                <div class="card">
-                    <h2>Create a Crypto Wallet</h2>
-                    <p>Don't have a wallet? You can create one easily to store your earnings.</p>
-                    <a href="https://t.me/CoinvetoBot?start=3AC81229" target="_blank" id="create-wallet-btn" class="btn btn-secondary" style="width: 100%;">Create Crypto Wallet</a>
+                    <button id="bonus-stars-btn-wallet" class="btn btn-accent" style="width: 100%; margin-top: 20px;">🎁 Click for +10 Bonus Stars 🎁</button>
                 </div>
-
-                <button id="bonus-stars-btn-wallet" class="btn btn-accent" style="width: 100%; margin-top: 20px;">🎁 Click for +10 Bonus Stars 🎁</button>
             </div>
 
         </div>
@@ -1516,6 +1528,11 @@
             }
             
             updateAllUI();
+             // Scroll to top of the new tab content immediately
+            const activeContent = document.getElementById(tabId).querySelector('.scrollable-content');
+            if (activeContent) {
+                activeContent.scrollTop = 0;
+            }
         }
 
 
