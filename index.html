@@ -1428,10 +1428,8 @@
                     }
                 });
             } else {
-                showToast("Telegram Stars payment only available in-app (Demo Stars added).");
-                gameData.stars += 500;
-                updateAllUI();
-                saveGameData();
+                // SECURITY FIX: Removed automatic star crediting in demo mode.
+                showToast("Purchase must be completed in Telegram. No stars credited.");
             }
         }
 
