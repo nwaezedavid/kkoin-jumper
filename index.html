@@ -1408,27 +1408,34 @@
         function buyStars() {
             const payment = CONFIG.TELEGRAM_STARS_PAYMENT;
             
-            if (isTWA && telegramWebApp && telegramWebApp.showInvoice) {
-                telegramWebApp.showInvoice({
-                    currency: payment.CURRENCY,
-                    prices: [{ label: payment.ITEM_LABEL, amount: payment.ITEM_PRICE }],
-                    payload: payment.ITEM_PAYLOAD
-                }, (status, payload) => {
-                    if (status === 'paid') {
-                        console.log("Invoice paid! Payload:", payload);
-                        gameData.stars += 500;
-                        updateAllUI();
-                        saveGameData();
-                        showToast("500 Stars added!");
-                    } else if (status === 'failed') {
-                        showToast("Payment failed. Please try again.");
-                    } else {
-                        showToast("Payment cancelled.");
-                    }
-                });
+            // Check 1: Must be in a Telegram WebApp environment
+            if (isTWA && telegramWebApp) {
+                // Check 2: The showInvoice function must be available
+                if (typeof telegramWebApp.showInvoice === 'function') {
+                    telegramWebApp.showInvoice({
+                        currency: payment.CURRENCY,
+                        prices: [{ label: payment.ITEM_LABEL, amount: payment.ITEM_PRICE }],
+                        payload: payment.ITEM_PAYLOAD
+                    }, (status, payload) => {
+                        if (status === 'paid') {
+                            console.log("Invoice paid! Payload:", payload);
+                            gameData.stars += 500;
+                            updateAllUI();
+                            saveGameData();
+                            showToast("500 Stars added!");
+                        } else if (status === 'failed') {
+                            showToast("Payment failed. Please try again.");
+                        } else {
+                            showToast("Payment cancelled.");
+                        }
+                    });
+                } else {
+                    // FIX: If showInvoice isn't available (e.g., old client version), guide the user.
+                    showToast("Payment system failed to load. Please update your Telegram app or try again later.", 4000);
+                }
             } else {
                 // SECURITY FIX: Removed automatic star crediting in demo mode.
-                showToast("Purchase must be completed in Telegram. No stars credited.");
+                showToast("Purchase must be completed within the Telegram Mini App environment.", 4000);
             }
         }
 
