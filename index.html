@@ -984,10 +984,10 @@
                 });
             });
 
-            // Navigation (Delegation removed, using direct attachment for guaranteed response)
+            // Navigation
             navButtons.forEach(button => {
+                // Direct listener attachment, the most reliable fix for this environment
                 button.addEventListener('click', () => {
-                    // Manually added event listener to ensure clicks work
                     changeTab(button.getAttribute('data-tab'));
                 });
             });
